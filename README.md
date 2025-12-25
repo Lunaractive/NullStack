@@ -67,7 +67,7 @@ yield return NullStackClient.Instance.Leaderboards.UpdatePlayerStatistic(
 );
 ```
 
-📖 **[Unity SDK Documentation](./unity-sdk/README.md)**
+📖 **[Unity SDK Repository](https://github.com/Lunaractive/unity-sdk)** | **[SDK Documentation](https://github.com/Lunaractive/unity-sdk#readme)**
 
 ---
 
@@ -187,7 +187,7 @@ See [DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md) for detailed instructions.
 ## 📖 Documentation
 
 - **[API Documentation](./API_DOCUMENTATION.md)** - Complete REST API reference
-- **[Unity SDK Guide](./unity-sdk/README.md)** - Unity integration docs
+- **[Unity SDK](https://github.com/Lunaractive/unity-sdk)** - Official Unity SDK repository
 - **[Deployment Guide](./DEPLOYMENT_READY.md)** - Production deployment
 - **[Homepage](http://localhost:5175)** - Project landing page
 
