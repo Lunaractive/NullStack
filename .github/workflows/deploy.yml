@@ -1,0 +1,275 @@
+name: Deploy to Kubernetes
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+  determine-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      cluster: ${{ steps.set-env.outputs.cluster }}
+
+    steps:
+      - name: Determine deployment environment
+        id: set-env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          fi
+
+          # Set cluster name based on environment
+          if [[ "$(cat $GITHUB_OUTPUT | grep environment | cut -d= -f2)" == "production" ]]; then
+            echo "cluster=nullstack-prod-cluster" >> $GITHUB_OUTPUT
+          else
+            echo "cluster=nullstack-staging-cluster" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-databases:
+    runs-on: ubuntu-latest
+    needs: determine-environment
+    environment: ${{ needs.determine-environment.outputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Create namespace if not exists
+        run: |
+          kubectl apply -f kubernetes/namespace.yaml
+
+      - name: Deploy secrets
+        run: |
+          # Create secrets from GitHub secrets
+          kubectl create secret generic nullstack-secrets \
+            --from-literal=postgres-password=${{ secrets.POSTGRES_PASSWORD }} \
+            --from-literal=mongodb-password=${{ secrets.MONGODB_PASSWORD }} \
+            --from-literal=redis-password=${{ secrets.REDIS_PASSWORD }} \
+            --from-literal=rabbitmq-password=${{ secrets.RABBITMQ_PASSWORD }} \
+            --from-literal=jwt-secret=${{ secrets.JWT_SECRET }} \
+            --from-literal=jwt-refresh-secret=${{ secrets.JWT_REFRESH_SECRET }} \
+            --namespace=nullstack \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy ConfigMap
+        run: |
+          kubectl apply -f kubernetes/configmap.yaml
+
+      - name: Deploy PostgreSQL
+        run: |
+          kubectl apply -f kubernetes/postgres-deployment.yaml
+          kubectl rollout status deployment/postgres -n nullstack --timeout=5m
+
+      - name: Deploy MongoDB
+        run: |
+          kubectl apply -f kubernetes/mongodb-deployment.yaml
+          kubectl rollout status deployment/mongodb -n nullstack --timeout=5m
+
+      - name: Deploy Redis
+        run: |
+          kubectl apply -f kubernetes/redis-deployment.yaml
+          kubectl rollout status deployment/redis -n nullstack --timeout=5m
+
+      - name: Wait for databases to be ready
+        run: |
+          kubectl wait --for=condition=ready pod -l app=postgres -n nullstack --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=mongodb -n nullstack --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=redis -n nullstack --timeout=300s
+
+  run-migrations:
+    runs-on: ubuntu-latest
+    needs: [determine-environment, deploy-databases]
+    environment: ${{ needs.determine-environment.outputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Run database migrations
+        run: |
+          # Create a temporary pod to run migrations
+          kubectl run migration-job-${{ github.run_number }} \
+            --image=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/auth-service:${{ github.ref_name }}-${{ github.sha }} \
+            --restart=Never \
+            --namespace=nullstack \
+            --env="POSTGRES_HOST=postgres" \
+            --env="POSTGRES_PORT=5432" \
+            --env="POSTGRES_DB=nullstack" \
+            --env="POSTGRES_USER=nullstack" \
+            --env="POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" \
+            --command -- npm run migrate
+
+          # Wait for migration to complete
+          kubectl wait --for=condition=complete job/migration-job-${{ github.run_number }} -n nullstack --timeout=5m
+
+          # Clean up migration job
+          kubectl delete pod migration-job-${{ github.run_number }} -n nullstack
+
+  deploy-services:
+    runs-on: ubuntu-latest
+    needs: [determine-environment, run-migrations]
+    environment: ${{ needs.determine-environment.outputs.environment }}
+
+    strategy:
+      matrix:
+        service:
+          - api-gateway
+          - auth-service
+          - title-service
+          - player-service
+          - economy-service
+          - analytics-service
+          - cloudscript-service
+          - matchmaking-service
+          - automation-service
+          - developer-portal
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Deploy ${{ matrix.service }}
+        run: |
+          # Update image in deployment
+          kubectl set image deployment/${{ matrix.service }} \
+            ${{ matrix.service }}=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.ref_name }}-${{ github.sha }} \
+            -n nullstack
+
+          # Wait for rollout to complete
+          kubectl rollout status deployment/${{ matrix.service }} -n nullstack --timeout=10m
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n nullstack -l app=${{ matrix.service }}
+          kubectl get deployment ${{ matrix.service }} -n nullstack
+
+  health-check:
+    runs-on: ubuntu-latest
+    needs: [determine-environment, deploy-services]
+    environment: ${{ needs.determine-environment.outputs.environment }}
+
+    steps:
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Wait for all services to be ready
+        run: |
+          kubectl wait --for=condition=ready pod -l tier=backend -n nullstack --timeout=600s
+
+      - name: Run health checks
+        run: |
+          # Get API Gateway service URL
+          API_GATEWAY_URL=$(kubectl get svc api-gateway -n nullstack -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+          # Wait for services to respond
+          for i in {1..30}; do
+            if curl -f http://${API_GATEWAY_URL}:3000/health; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Waiting for services to be ready... (attempt $i/30)"
+            sleep 10
+          done
+
+          echo "Health check failed"
+          exit 1
+
+      - name: Run smoke tests
+        run: |
+          API_GATEWAY_URL=$(kubectl get svc api-gateway -n nullstack -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+          # Test authentication endpoint
+          curl -f http://${API_GATEWAY_URL}:3000/api/auth/health || exit 1
+
+          # Test other critical endpoints
+          curl -f http://${API_GATEWAY_URL}:3000/api/player/health || exit 1
+          curl -f http://${API_GATEWAY_URL}:3000/api/economy/health || exit 1
+
+          echo "Smoke tests passed"
+
+  notify-deployment:
+    runs-on: ubuntu-latest
+    needs: [determine-environment, deploy-services, health-check]
+    if: always()
+
+    steps:
+      - name: Notify deployment status
+        run: |
+          if [[ "${{ needs.health-check.result }}" == "success" ]]; then
+            echo "Deployment to ${{ needs.determine-environment.outputs.environment }} succeeded"
+            # Add Slack/Discord/Email notification here
+          else
+            echo "Deployment to ${{ needs.determine-environment.outputs.environment }} failed"
+            exit 1
+          fi
+
+  rollback:
+    runs-on: ubuntu-latest
+    needs: [determine-environment, health-check]
+    if: failure()
+    environment: ${{ needs.determine-environment.outputs.environment }}
+
+    steps:
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Rollback deployments
+        run: |
+          echo "Rolling back all services..."
+
+          services=("api-gateway" "auth-service" "title-service" "player-service" "economy-service" "analytics-service" "cloudscript-service" "matchmaking-service" "automation-service" "developer-portal")
+
+          for service in "${services[@]}"; do
+            echo "Rolling back $service..."
+            kubectl rollout undo deployment/$service -n nullstack
+          done
+
+      - name: Verify rollback
+        run: |
+          kubectl get deployments -n nullstack
+          kubectl get pods -n nullstack

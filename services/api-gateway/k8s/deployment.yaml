@@ -1,0 +1,187 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: nullstack
+  labels:
+    app: api-gateway
+    tier: gateway
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        tier: gateway
+        version: v1
+    spec:
+      containers:
+      - name: api-gateway
+        image: nullstack/api-gateway:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: websocket
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "8080"
+        - name: HOST
+          value: "0.0.0.0"
+        - name: AUTH_SERVICE_URL
+          value: "http://auth-service:3001"
+        - name: TITLE_SERVICE_URL
+          value: "http://title-service:3002"
+        - name: PLAYER_SERVICE_URL
+          value: "http://player-service:3003"
+        - name: ECONOMY_SERVICE_URL
+          value: "http://economy-service:3004"
+        - name: CLOUDSCRIPT_SERVICE_URL
+          value: "http://cloudscript-service:3005"
+        - name: MATCHMAKING_SERVICE_URL
+          value: "http://matchmaking-service:3006"
+        - name: ANALYTICS_SERVICE_URL
+          value: "http://analytics-service:3007"
+        - name: ALLOWED_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: api-gateway-config
+              key: allowed-origins
+        - name: GLOBAL_RATE_LIMIT
+          value: "1000"
+        - name: AUTH_RATE_LIMIT
+          value: "100"
+        - name: API_RATE_LIMIT
+          value: "500"
+        - name: ADMIN_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-gateway-secrets
+              key: admin-api-key
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 10"]
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: nullstack
+  labels:
+    app: api-gateway
+spec:
+  type: LoadBalancer
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  - name: websocket
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: api-gateway
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-gateway-config
+  namespace: nullstack
+data:
+  allowed-origins: "*"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-gateway-secrets
+  namespace: nullstack
+type: Opaque
+stringData:
+  admin-api-key: "change-this-in-production"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-gateway-hpa
+  namespace: nullstack
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-gateway
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 15
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+      - type: Pods
+        value: 2
+        periodSeconds: 15
+      selectPolicy: Max

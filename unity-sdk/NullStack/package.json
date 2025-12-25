@@ -1,0 +1,24 @@
+{
+  "name": "com.lunaractive.nullstack",
+  "version": "1.0.0",
+  "displayName": "NullStack SDK",
+  "description": "Official Unity SDK for NullStack - Open-source PlayFab alternative",
+  "unity": "2020.3",
+  "unityRelease": "0b5",
+  "documentationUrl": "https://github.com/lunaractive/nullstack",
+  "licensesUrl": "https://github.com/lunaractive/nullstack/blob/main/LICENSE",
+  "dependencies": {},
+  "keywords": [
+    "backend",
+    "playfab",
+    "game services",
+    "analytics",
+    "leaderboards",
+    "matchmaking"
+  ],
+  "author": {
+    "name": "Lunaractive",
+    "email": "support@lunaractive.com",
+    "url": "https://lunaractive.com"
+  }
+}

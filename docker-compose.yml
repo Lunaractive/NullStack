@@ -1,0 +1,338 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nullstack-postgres
+    environment:
+      POSTGRES_DB: nullstack
+      POSTGRES_USER: nullstack
+      POSTGRES_PASSWORD: nullstack_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nullstack"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7
+    container_name: nullstack-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: nullstack
+      MONGO_INITDB_ROOT_PASSWORD: nullstack_dev_password
+      MONGO_INITDB_DATABASE: nullstack
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: nullstack-redis
+    command: redis-server --requirepass nullstack_dev_password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: nullstack-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: nullstack
+      RABBITMQ_DEFAULT_PASS: nullstack_dev_password
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: nullstack-api-gateway
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+      - rabbitmq
+    volumes:
+      - ./services/api-gateway:/app/services/api-gateway
+      - /app/node_modules
+    command: npm run dev
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    container_name: nullstack-auth-service
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: nullstack
+      POSTGRES_PASSWORD: nullstack_dev_password
+      POSTGRES_DB: nullstack
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: nullstack_dev_password
+      JWT_SECRET: dev-secret-key-change-in-production
+      JWT_REFRESH_SECRET: dev-refresh-secret-change-in-production
+      JWT_EXPIRES_IN: 1h
+      JWT_REFRESH_EXPIRES_IN: 7d
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+      - redis
+
+  title-service:
+    build:
+      context: .
+      dockerfile: services/title-service/Dockerfile
+    container_name: nullstack-title-service
+    environment:
+      NODE_ENV: development
+      PORT: 3002
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: nullstack
+      POSTGRES_PASSWORD: nullstack_dev_password
+      POSTGRES_DB: nullstack
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: nullstack_dev_password
+      JWT_SECRET: dev-secret-key-change-in-production
+    ports:
+      - "3002:3002"
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./services/title-service:/app/services/title-service
+      - /app/node_modules
+
+  player-service:
+    build:
+      context: .
+      dockerfile: services/player-service/Dockerfile
+    container_name: nullstack-player-service
+    environment:
+      NODE_ENV: development
+      PORT: 3003
+      MONGODB_URI: mongodb://nullstack:nullstack_dev_password@mongodb:27017/nullstack?authSource=admin
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: nullstack_dev_password
+      JWT_SECRET: dev-secret-key-change-in-production
+    ports:
+      - "3003:3003"
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ./services/player-service:/app/services/player-service
+      - /app/node_modules
+
+  economy-service:
+    build:
+      context: .
+      dockerfile: services/economy-service/Dockerfile
+    container_name: nullstack-economy-service
+    environment:
+      NODE_ENV: development
+      PORT: 3004
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: nullstack
+      POSTGRES_PASSWORD: nullstack_dev_password
+      POSTGRES_DB: nullstack
+      MONGODB_URI: mongodb://nullstack:nullstack_dev_password@mongodb:27017/nullstack?authSource=admin
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: nullstack_dev_password
+      JWT_SECRET: dev-secret-key-change-in-production
+    ports:
+      - "3004:3004"
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+    volumes:
+      - ./services/economy-service:/app/services/economy-service
+      - /app/node_modules
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: services/analytics-service/Dockerfile
+    container_name: nullstack-analytics-service
+    environment:
+      NODE_ENV: development
+      PORT: 3009
+      MONGODB_URI: mongodb://nullstack:nullstack_dev_password@mongodb:27017/nullstack?authSource=admin
+      REDIS_URL: redis://:nullstack_dev_password@redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: nullstack_dev_password
+      RABBITMQ_URL: amqp://nullstack:nullstack_dev_password@rabbitmq:5672
+      JWT_SECRET: dev-secret-key-change-in-production
+    ports:
+      - "3009:3009"
+    depends_on:
+      - mongodb
+      - rabbitmq
+      - redis
+
+  cloudscript-service:
+    build:
+      context: .
+      dockerfile: services/cloudscript-service/Dockerfile
+    container_name: nullstack-cloudscript-service
+    environment:
+      NODE_ENV: development
+      PORT: 3007
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: nullstack
+      POSTGRES_PASSWORD: nullstack_dev_password
+      POSTGRES_DB: nullstack
+      MONGODB_URI: mongodb://nullstack:nullstack_dev_password@mongodb:27017/nullstack?authSource=admin
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: nullstack_dev_password
+      JWT_SECRET: dev-secret-key-change-in-production
+    ports:
+      - "3007:3007"
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+
+  matchmaking-service:
+    build:
+      context: .
+      dockerfile: services/matchmaking-service/Dockerfile
+    container_name: nullstack-matchmaking-service
+    environment:
+      NODE_ENV: development
+      PORT: 4001
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: nullstack_dev_password
+      RABBITMQ_URL: amqp://nullstack:nullstack_dev_password@rabbitmq:5672
+      JWT_SECRET: dev-secret-key-change-in-production
+    ports:
+      - "4001:4001"
+    depends_on:
+      - redis
+      - rabbitmq
+
+  leaderboards-service:
+    build:
+      context: .
+      dockerfile: services/leaderboards-service/Dockerfile
+    container_name: nullstack-leaderboards-service
+    environment:
+      NODE_ENV: development
+      PORT: 3010
+      MONGODB_URI: mongodb://nullstack:nullstack_dev_password@mongodb:27017/nullstack?authSource=admin
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: nullstack_dev_password
+      JWT_SECRET: dev-secret-key-change-in-production
+    ports:
+      - "3010:3010"
+    depends_on:
+      - mongodb
+      - redis
+
+  automation-service:
+    build:
+      context: .
+      dockerfile: services/automation-service/Dockerfile
+    container_name: nullstack-automation-service
+    environment:
+      NODE_ENV: development
+      PORT: 4002
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: nullstack
+      POSTGRES_PASSWORD: nullstack_dev_password
+      POSTGRES_DB: nullstack
+      RABBITMQ_URL: amqp://nullstack:nullstack_dev_password@rabbitmq:5672
+      JWT_SECRET: dev-secret-key-change-in-production
+    ports:
+      - "4002:4002"
+    depends_on:
+      - postgres
+      - rabbitmq
+
+  notifications-service:
+    build:
+      context: .
+      dockerfile: services/notifications-service/Dockerfile
+    container_name: nullstack-notifications-service
+    environment:
+      NODE_ENV: development
+      PORT: 4003
+      MONGODB_URI: mongodb://nullstack:nullstack_dev_password@mongodb:27017/nullstack?authSource=admin
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: nullstack_dev_password
+      RABBITMQ_URL: amqp://nullstack:nullstack_dev_password@rabbitmq:5672
+      JWT_SECRET: dev-secret-key-change-in-production
+    ports:
+      - "4003:4003"
+    depends_on:
+      - mongodb
+      - redis
+      - rabbitmq
+
+  developer-portal:
+    build:
+      context: .
+      dockerfile: apps/developer-portal/Dockerfile
+    container_name: nullstack-developer-portal
+    environment:
+      NODE_ENV: development
+      PORT: 3100
+    ports:
+      - "3100:3100"
+    depends_on:
+      - api-gateway
+    volumes:
+      - ./apps/developer-portal:/app/apps/developer-portal
+      - /app/node_modules
+
+volumes:
+  postgres_data:
+  mongo_data:
+  redis_data:
+  rabbitmq_data:

@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nullstack-api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 8080
+      HOST: 0.0.0.0
+
+      # Service URLs
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:3001}
+      TITLE_SERVICE_URL: ${TITLE_SERVICE_URL:-http://title-service:3002}
+      PLAYER_SERVICE_URL: ${PLAYER_SERVICE_URL:-http://player-service:3003}
+      ECONOMY_SERVICE_URL: ${ECONOMY_SERVICE_URL:-http://economy-service:3004}
+      CLOUDSCRIPT_SERVICE_URL: ${CLOUDSCRIPT_SERVICE_URL:-http://cloudscript-service:3005}
+      MATCHMAKING_SERVICE_URL: ${MATCHMAKING_SERVICE_URL:-http://matchmaking-service:3006}
+      ANALYTICS_SERVICE_URL: ${ANALYTICS_SERVICE_URL:-http://analytics-service:3007}
+
+      # Configuration
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
+      GLOBAL_RATE_LIMIT: ${GLOBAL_RATE_LIMIT:-1000}
+      AUTH_RATE_LIMIT: ${AUTH_RATE_LIMIT:-100}
+      API_RATE_LIMIT: ${API_RATE_LIMIT:-500}
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+
+    volumes:
+      - gateway-logs:/var/log/nullstack
+    networks:
+      - nullstack-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  gateway-logs:
+    driver: local
+
+networks:
+  nullstack-network:
+    driver: bridge

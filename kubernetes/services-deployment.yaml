@@ -1,0 +1,801 @@
+# API Gateway Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: nullstack
+  labels:
+    app: api-gateway
+    tier: backend
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    app: api-gateway
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: nullstack
+  labels:
+    app: api-gateway
+    tier: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        tier: backend
+    spec:
+      containers:
+        - name: api-gateway
+          image: ghcr.io/your-org/nullstack/api-gateway:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: PORT
+              value: "3000"
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: nullstack-config
+                  key: NODE_ENV
+          envFrom:
+            - configMapRef:
+                name: nullstack-config
+            - secretRef:
+                name: nullstack-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+# Auth Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: nullstack
+  labels:
+    app: auth-service
+    tier: backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3001
+      targetPort: 3001
+      protocol: TCP
+      name: http
+  selector:
+    app: auth-service
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: nullstack
+  labels:
+    app: auth-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+        tier: backend
+    spec:
+      containers:
+        - name: auth-service
+          image: ghcr.io/your-org/nullstack/auth-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3001
+              name: http
+          env:
+            - name: PORT
+              value: "3001"
+          envFrom:
+            - configMapRef:
+                name: nullstack-config
+            - secretRef:
+                name: nullstack-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+# Title Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: title-service
+  namespace: nullstack
+  labels:
+    app: title-service
+    tier: backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3002
+      targetPort: 3002
+      protocol: TCP
+      name: http
+  selector:
+    app: title-service
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: title-service
+  namespace: nullstack
+  labels:
+    app: title-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: title-service
+  template:
+    metadata:
+      labels:
+        app: title-service
+        tier: backend
+    spec:
+      containers:
+        - name: title-service
+          image: ghcr.io/your-org/nullstack/title-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3002
+              name: http
+          env:
+            - name: PORT
+              value: "3002"
+          envFrom:
+            - configMapRef:
+                name: nullstack-config
+            - secretRef:
+                name: nullstack-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+# Player Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: player-service
+  namespace: nullstack
+  labels:
+    app: player-service
+    tier: backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3003
+      targetPort: 3003
+      protocol: TCP
+      name: http
+  selector:
+    app: player-service
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: player-service
+  namespace: nullstack
+  labels:
+    app: player-service
+    tier: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: player-service
+  template:
+    metadata:
+      labels:
+        app: player-service
+        tier: backend
+    spec:
+      containers:
+        - name: player-service
+          image: ghcr.io/your-org/nullstack/player-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3003
+              name: http
+          env:
+            - name: PORT
+              value: "3003"
+          envFrom:
+            - configMapRef:
+                name: nullstack-config
+            - secretRef:
+                name: nullstack-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+# Economy Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: economy-service
+  namespace: nullstack
+  labels:
+    app: economy-service
+    tier: backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3004
+      targetPort: 3004
+      protocol: TCP
+      name: http
+  selector:
+    app: economy-service
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: economy-service
+  namespace: nullstack
+  labels:
+    app: economy-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: economy-service
+  template:
+    metadata:
+      labels:
+        app: economy-service
+        tier: backend
+    spec:
+      containers:
+        - name: economy-service
+          image: ghcr.io/your-org/nullstack/economy-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3004
+              name: http
+          env:
+            - name: PORT
+              value: "3004"
+          envFrom:
+            - configMapRef:
+                name: nullstack-config
+            - secretRef:
+                name: nullstack-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3004
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3004
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+# Analytics Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service
+  namespace: nullstack
+  labels:
+    app: analytics-service
+    tier: backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3005
+      targetPort: 3005
+      protocol: TCP
+      name: http
+  selector:
+    app: analytics-service
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: nullstack
+  labels:
+    app: analytics-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: analytics-service
+  template:
+    metadata:
+      labels:
+        app: analytics-service
+        tier: backend
+    spec:
+      containers:
+        - name: analytics-service
+          image: ghcr.io/your-org/nullstack/analytics-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3005
+              name: http
+          env:
+            - name: PORT
+              value: "3005"
+          envFrom:
+            - configMapRef:
+                name: nullstack-config
+            - secretRef:
+                name: nullstack-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3005
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3005
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+# CloudScript Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudscript-service
+  namespace: nullstack
+  labels:
+    app: cloudscript-service
+    tier: backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3006
+      targetPort: 3006
+      protocol: TCP
+      name: http
+  selector:
+    app: cloudscript-service
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudscript-service
+  namespace: nullstack
+  labels:
+    app: cloudscript-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cloudscript-service
+  template:
+    metadata:
+      labels:
+        app: cloudscript-service
+        tier: backend
+    spec:
+      containers:
+        - name: cloudscript-service
+          image: ghcr.io/your-org/nullstack/cloudscript-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3006
+              name: http
+          env:
+            - name: PORT
+              value: "3006"
+          envFrom:
+            - configMapRef:
+                name: nullstack-config
+            - secretRef:
+                name: nullstack-secrets
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "300m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3006
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3006
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+# Matchmaking Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: matchmaking-service
+  namespace: nullstack
+  labels:
+    app: matchmaking-service
+    tier: backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3007
+      targetPort: 3007
+      protocol: TCP
+      name: http
+  selector:
+    app: matchmaking-service
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matchmaking-service
+  namespace: nullstack
+  labels:
+    app: matchmaking-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: matchmaking-service
+  template:
+    metadata:
+      labels:
+        app: matchmaking-service
+        tier: backend
+    spec:
+      containers:
+        - name: matchmaking-service
+          image: ghcr.io/your-org/nullstack/matchmaking-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3007
+              name: http
+          env:
+            - name: PORT
+              value: "3007"
+          envFrom:
+            - configMapRef:
+                name: nullstack-config
+            - secretRef:
+                name: nullstack-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3007
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3007
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+# Automation Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: automation-service
+  namespace: nullstack
+  labels:
+    app: automation-service
+    tier: backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3008
+      targetPort: 3008
+      protocol: TCP
+      name: http
+  selector:
+    app: automation-service
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: automation-service
+  namespace: nullstack
+  labels:
+    app: automation-service
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: automation-service
+  template:
+    metadata:
+      labels:
+        app: automation-service
+        tier: backend
+    spec:
+      containers:
+        - name: automation-service
+          image: ghcr.io/your-org/nullstack/automation-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3008
+              name: http
+          env:
+            - name: PORT
+              value: "3008"
+          envFrom:
+            - configMapRef:
+                name: nullstack-config
+            - secretRef:
+                name: nullstack-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3008
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3008
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+# Developer Portal
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: developer-portal
+  namespace: nullstack
+  labels:
+    app: developer-portal
+    tier: frontend
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app: developer-portal
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: developer-portal
+  namespace: nullstack
+  labels:
+    app: developer-portal
+    tier: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: developer-portal
+  template:
+    metadata:
+      labels:
+        app: developer-portal
+        tier: frontend
+    spec:
+      containers:
+        - name: developer-portal
+          image: ghcr.io/your-org/nullstack/developer-portal:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+# Horizontal Pod Autoscalers
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-gateway-hpa
+  namespace: nullstack
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-gateway
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: player-service-hpa
+  namespace: nullstack
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: player-service
+  minReplicas: 3
+  maxReplicas: 15
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

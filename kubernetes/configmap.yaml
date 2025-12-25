@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nullstack-config
+  namespace: nullstack
+  labels:
+    app: nullstack
+data:
+  # Database Configuration
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "nullstack"
+  POSTGRES_USER: "nullstack"
+
+  MONGODB_URI: "mongodb://nullstack:PASSWORD@mongodb:27017/nullstack?authSource=admin"
+
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+
+  RABBITMQ_URL: "amqp://nullstack:PASSWORD@rabbitmq:5672"
+
+  # JWT Configuration
+  JWT_EXPIRES_IN: "1h"
+  JWT_REFRESH_EXPIRES_IN: "7d"
+
+  # API Configuration
+  API_RATE_LIMIT_WINDOW_MS: "60000"
+  API_RATE_LIMIT_MAX_REQUESTS: "100"
+
+  # Service URLs (internal)
+  AUTH_SERVICE_URL: "http://auth-service:3001"
+  TITLE_SERVICE_URL: "http://title-service:3002"
+  PLAYER_SERVICE_URL: "http://player-service:3003"
+  ECONOMY_SERVICE_URL: "http://economy-service:3004"
+  ANALYTICS_SERVICE_URL: "http://analytics-service:3005"
+  CLOUDSCRIPT_SERVICE_URL: "http://cloudscript-service:3006"
+  MATCHMAKING_SERVICE_URL: "http://matchmaking-service:3007"
+  AUTOMATION_SERVICE_URL: "http://automation-service:3008"
+
+  # Monitoring
+  LOG_LEVEL: "info"
+
+  # Environment
+  NODE_ENV: "production"
+
+  # Feature Flags
+  ENABLE_METRICS: "true"
+  ENABLE_TRACING: "true"
+  ENABLE_RATE_LIMITING: "true"
+
+  # CORS Configuration
+  CORS_ORIGINS: "*"

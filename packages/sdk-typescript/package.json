@@ -1,0 +1,47 @@
+{
+  "name": "@nullstack/sdk",
+  "version": "1.0.0",
+  "description": "Official TypeScript/JavaScript SDK for NullStack - Game Backend as a Service",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "nullstack",
+    "game",
+    "backend",
+    "baas",
+    "gaming",
+    "multiplayer",
+    "leaderboards",
+    "authentication",
+    "sdk"
+  ],
+  "author": "NullStack",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nullstack/nullstack"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "jest": "^29.7.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.2"
+  },
+  "dependencies": {
+    "axios": "^1.6.2"
+  }
+}

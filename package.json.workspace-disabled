@@ -1,0 +1,36 @@
+{
+  "name": "nullstack",
+  "version": "1.0.0",
+  "description": "Complete Backend-as-a-Service platform for game developers",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "migrate": "npm run migrate --workspace=@nullstack/database",
+    "seed": "npm run seed --workspace=@nullstack/database"
+  },
+  "devDependencies": {
+    "turbo": "^1.13.0",
+    "typescript": "^5.3.3",
+    "@types/node": "^20.11.0",
+    "eslint": "^8.56.0",
+    "prettier": "^3.2.4",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.11"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}
